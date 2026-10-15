@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Casino hry</title>
+<style>
+:root {
+  --felt: #0f6b44; --felt-2: #09442c; --wood: #3b1f12; --wood-2: #1d0f09;
+  --gold: #e8c15a; --gold-2: #a8801f; --ivory: #fbf6e6; --ink: #1b1410; --text: #f4efdc;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --felt: #0b5236; --felt-2: #062e1e; --wood-2: #120905; }
+}
+:root[data-theme="dark"] { --felt: #0b5236; --felt-2: #062e1e; --wood-2: #120905; }
+*, *::before, *::after { box-sizing: inherit; }
+html { height: 100%; }
+body {
+  margin: 0; min-height: 100%; color: var(--text);
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(ellipse at 50% 20%, var(--wood), var(--wood-2) 75%);
+  background-color: var(--wood-2);
+  display: flex; align-items: center; justify-content: center; padding: 20px 0;
+}
+main {
+  width: min(94vw, 400px); text-align: center; padding: 26px 20px 22px;
+  background: radial-gradient(ellipse at 50% 30%, var(--felt), var(--felt-2) 85%);
+  border-radius: 34px; border: 12px solid #4a2814;
+  box-shadow: 0 0 0 3px var(--gold-2), inset 0 0 0 2px rgba(232,193,90,.55), inset 0 0 60px rgba(0,0,0,.45), 0 24px 50px rgba(0,0,0,.6);
+}
+h1 { font-family: Georgia, "Times New Roman", serif; font-size: 1.7rem; margin: 0 0 4px; font-weight: 700;
+  color: var(--gold); letter-spacing: .04em; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 14px rgba(232,193,90,.35); }
+h1 span { color: #e4483d; margin: 0 .35em; }
+.sub { margin: 0 0 18px; opacity: .8; font-size: .9rem; font-style: italic; font-family: Georgia, serif; }
+
+.stage { perspective: 600px; height: 150px; display: grid; place-items: center; }
+.die {
+  width: 110px; height: 110px; padding: 14px;
+  background: linear-gradient(145deg, #e23a3f, #a3141d 70%);
+  border-radius: 16px; border: 1px solid #ff8a8a55;
+  box-shadow: 0 12px 0 -3px rgba(0,0,0,.35), 0 20px 28px rgba(0,0,0,.55), inset 0 3px 6px rgba(255,255,255,.35), inset 0 -6px 10px rgba(0,0,0,.35);
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+}
+.die.rolling { animation: tumble .7s cubic-bezier(.3,.7,.4,1); }
+@keyframes tumble {
+  0% { transform: translateY(0) rotate(0) scale(1); }
+  35% { transform: translateY(-40px) rotate(200deg) scale(1.08); }
+  70% { transform: translateY(0) rotate(400deg) scale(.96); }
+  100% { transform: translateY(0) rotate(720deg) scale(1); }
+}
+.pip { width: 78%; height: 78%; margin: auto; border-radius: 50%; background: var(--ivory); opacity: 0;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,.25); }
+.pip.on { opacity: 1; }
+.die.empty::after { content: "?"; grid-area: 2 / 2; place-self: center; font-size: 2.6rem; color: var(--ivory); opacity: .6; font-family: Georgia, serif; }
+.die.falling { animation: fall .9s ease-in forwards; }
+@keyframes fall {
+  0% { transform: translate(0,0) rotate(0); opacity: 1; }
+  25% { transform: translate(40px,-6px) rotate(25deg); opacity: 1; }
+  100% { transform: translate(120px,260px) rotate(200deg); opacity: 0; }
+}
+.msg { min-height: 1.4em; margin: 6px 0 0; font-weight: 700; color: var(--gold); font-family: Georgia, serif; }
+
+#roll, #spin, #deal, #serve {
+  margin-top: 14px; font: inherit; font-size: 1.05rem; font-weight: 800; color: #2a1c02;
+  background: linear-gradient(#f6d77a, var(--gold) 55%, #c79b2c); border: 1px solid #fff3b8;
+  border-radius: 999px; padding: 12px 34px; cursor: pointer;
+  box-shadow: 0 5px 0 var(--gold-2), 0 10px 16px rgba(0,0,0,.4); transition: transform .1s, box-shadow .1s;
+}
+#roll:active, #spin:active, #deal:active, #serve:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--gold-2); }
+#roll:disabled, #spin:disabled, #deal:disabled, #serve:disabled { opacity: .7; cursor: wait; }
+:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.hint { font-size: .78rem; opacity: .65; margin: 12px 0 0; }
+.chance { display: block; margin-top: 18px; font-size: .88rem; }
+.chance b { color: var(--gold); }
+#chance { width: 100%; margin-top: 8px; accent-color: var(--gold); }
+
+.panel { margin-top: 20px; background: rgba(0,0,0,.28); border: 1px solid rgba(232,193,90,.45); border-radius: 14px; padding: 14px 16px; text-align: left; }
+.panel h2 { font-family: Georgia, serif; font-size: 1rem; margin: 0 0 10px; color: var(--gold); font-weight: 700; }
+.history { display: flex; gap: 6px; flex-wrap: wrap; min-height: 36px; }
+.chip { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .95rem;
+  color: #fff; border: 3px dashed rgba(255,255,255,.8); background-clip: padding-box;
+  box-shadow: 0 0 0 2px var(--c, #444), 0 3px 4px rgba(0,0,0,.5); background: var(--c, #444); }
+.chip[data-n="1"] { --c: #efeadb; color: var(--ink); border-color: #b9b29c; }
+.chip[data-n="2"] { --c: #c92b2b; }
+.chip[data-n="3"] { --c: #1f56b5; }
+.chip[data-n="4"] { --c: #1e8a4c; }
+.chip[data-n="5"] { --c: #202020; }
+.chip[data-n="6"] { --c: #7a2bb0; }
+.chip.fall { --c: #111; color: #ff5a4d; border-color: #ff5a4d; }
+.empty-msg { opacity: .6; font-size: .85rem; align-self: center; }
+.fallrow { margin: 10px 0 0; font-size: .85rem; }
+.stats { display: grid; gap: 5px; margin-top: 8px; }
+.row { display: grid; grid-template-columns: 16px 1fr 78px; align-items: center; gap: 8px; font-size: .85rem; }
+.bar { position: relative; height: 8px; border-radius: 4px; background: rgba(255,255,255,.14); overflow: hidden; }
+.bar::after { content: ""; position: absolute; top: -2px; bottom: -2px; left: var(--t, 16.67%); width: 2px; background: var(--ivory); opacity: .85; }
+.bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-2), var(--gold)); transition: width .4s; }
+.row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { font-size: .76rem; opacity: .65; margin: 8px 0 0; }
+#reset, #rreset, #bjreset, #minereset { margin-top: 12px; font: inherit; font-size: .85rem; color: var(--text); background: none;
+  border: 1px solid rgba(232,193,90,.6); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+[hidden] { display: none !important; }
+.tabs { flex-wrap: wrap; display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.tab { font: inherit; font-size: .9rem; font-weight: 700; color: var(--text); background: rgba(0,0,0,.3);
+  border: 1px solid rgba(232,193,90,.6); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.tab:disabled { opacity: .4; cursor: not-allowed; }
+.tab[aria-selected="true"] { background: linear-gradient(#f6d77a, var(--gold)); color: #2a1c02; border-color: #fff3b8; }
+.wheelwrap { position: relative; width: 240px; height: 240px; margin: 4px auto 0; }
+#wheel { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 14px rgba(0,0,0,.55)); transition: transform 4.2s cubic-bezier(.12,.6,.1,1); }
+.pointer { position: absolute; left: 50%; top: -6px; width: 0; height: 0; margin-left: -9px;
+  border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 18px solid var(--gold); filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+.ball { position: absolute; left: 50%; top: 14px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #cfcfcf 70%); box-shadow: 0 2px 3px rgba(0,0,0,.6); }
+.bank { margin: 14px 0 8px; font-size: .9rem; } .bank b { color: var(--gold); }
+.bets { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.bet { font: inherit; font-size: .82rem; font-weight: 700; color: #fff; border: 2px solid rgba(255,255,255,.35); border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+.bet[data-bet="red"] { background: #c92b2b; } .bet[data-bet="black"] { background: #1a1a1a; } .bet[data-bet="green"] { background: #1e8a4c; }
+.bet[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(232,193,90,.6); }
+.row.r { grid-template-columns: 58px 1fr 78px; }
+.hand { margin-top: 10px; text-align: left; }
+.hand h3 { font-family: Georgia, serif; font-size: .92rem; margin: 0 0 6px; color: var(--gold); }
+.hand h3 span { color: var(--text); font-family: "Trebuchet MS", sans-serif; font-weight: 400; }
+.cards { display: flex; gap: 6px; min-height: 76px; flex-wrap: wrap; }
+.card { width: 52px; height: 74px; background: #fffdf6; color: #1b1410; border-radius: 7px; display: grid; place-items: center;
+  box-shadow: 0 3px 6px rgba(0,0,0,.45); position: relative; }
+.card b { position: absolute; left: 5px; top: 4px; font-size: .85rem; line-height: 1; }
+.card i { font-style: normal; font-size: 1.7rem; }
+.card.red { color: #c92b2b; }
+.card.back { background: repeating-linear-gradient(45deg, #a3141d 0 6px, #7d0f16 6px 12px); border: 3px solid #fffdf6; }
+.card.new { animation: pop .25s ease-out; }
+@keyframes pop { from { transform: translateY(-14px) scale(.7); opacity: 0; } }
+.acts { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+.order { margin-top: 12px; background: rgba(0,0,0,.28); border: 1px solid rgba(232,193,90,.45); border-radius: 12px; padding: 10px 12px; text-align: left; }
+.order > b { font-family: Georgia, serif; color: var(--gold); font-size: 1.1rem; }
+.recipe { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; font-size: .82rem; }
+.recipe span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.recipe i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,.5); }
+.recipe .ok { color: #7be0a0; font-weight: 700; } .recipe .over { color: #ff8a7a; font-weight: 700; }
+.timer { height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 10px; }
+.timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--gold-2), var(--gold)); }
+.timer.low i { background: #e4483d; }
+.glasswrap { width: 120px; height: 160px; margin: 10px auto 0; }
+#glass { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 8px 10px rgba(0,0,0,.45)); }
+.glasswrap.shake { animation: shake .7s; }
+@keyframes shake { 0%,100% { transform: none; } 15% { transform: translate(-8px,-6px) rotate(-10deg); } 35% { transform: translate(8px,0) rotate(9deg); } 55% { transform: translate(-7px,-5px) rotate(-8deg); } 75% { transform: translate(6px,0) rotate(6deg); } }
+.liq { transform-box: fill-box; transform-origin: 50% 100%; animation: rise .25s ease-out; transition: fill .6s; }
+@keyframes rise { from { transform: scaleY(0); } }
+.ings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 10px; }
+.ing { position: relative; touch-action: manipulation; user-select: none; -webkit-user-select: none; font: inherit; font-size: .72rem; font-weight: 700; color: var(--text); background: rgba(0,0,0,.32);
+  border: 1px solid rgba(232,193,90,.5); border-radius: 10px; padding: 7px 2px 5px; cursor: pointer; display: grid; gap: 4px; justify-items: center; }
+.ing:active { transform: translateY(2px); } .ing:disabled { opacity: .4; cursor: not-allowed; }
+.ing i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); }
+.ing b { position: absolute; top: -6px; right: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--gold); color: #2a1c02; font-size: .7rem; display: grid; place-items: center; }
+.bub { fill: rgba(255,255,255,.8); transform-box: fill-box; animation: bub 1.8s linear infinite; }
+@keyframes bub { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(calc(var(--h, 60px) * -1)); opacity: 0; } }
+.glasswrap { position: relative; }
+.icg { transition: transform .5s ease; }
+.grp { grid-column: 1 / -1; margin: 8px 0 0; font: .78rem Georgia, serif; text-align: left; color: var(--gold); }
+.gar { transform-box: fill-box; transform-origin: 50% 50%; animation: dropin .6s cubic-bezier(.3,1.5,.5,1) backwards; }
+@keyframes dropin { from { transform: translateY(-40px) scale(.6); opacity: 0; } }
+.ice { fill: rgba(255,255,255,.4); stroke: rgba(255,255,255,.85); stroke-width: 1.2; transform-box: fill-box; transform-origin: 50% 50%;
+  animation: dropin .55s ease-in backwards, bob 2.6s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-2.5px) rotate(4deg); } }
+.wavep { animation: wavex 1.6s linear infinite; } @keyframes wavex { to { transform: translateX(-30px); } }
+.glasswrap.glow #glass { animation: gpulse 1.8s ease-in-out infinite; }
+@keyframes gpulse { 0%,100% { filter: drop-shadow(0 0 6px var(--gl)) drop-shadow(0 8px 10px rgba(0,0,0,.45)); } 50% { filter: drop-shadow(0 0 22px var(--gl)) drop-shadow(0 8px 10px rgba(0,0,0,.45)); } }
+.fx { position: absolute; inset: -40px; pointer-events: none; overflow: visible; }
+.pt { position: absolute; left: 50%; top: 50%; width: 7px; height: 11px; border-radius: 2px; animation: fly 1.3s ease-out forwards; }
+.pt.st { background: none !important; width: auto; height: auto; color: #f3d77a; font-size: 15px; line-height: 1; animation-duration: 1.7s; }
+@keyframes fly { from { transform: translate(0,0) rotate(0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
+.profile { margin-top: 8px; text-align: left; background: rgba(0,0,0,.28); border: 1px solid rgba(232,193,90,.45); border-radius: 12px; padding: 10px 12px; }
+.profile #pname { display: block; text-align: center; font: 700 1.3rem Georgia, serif; color: var(--gold); margin-bottom: 6px; }
+.profile .row.r { grid-template-columns: 76px 1fr 52px; font-size: .8rem; margin-top: 5px; }
+.reveal { animation: reveal .9s ease-out; }
+@keyframes reveal { from { opacity: 0; transform: scale(.7); filter: blur(6px); letter-spacing: .25em; } }
+.mrow { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; font-size: .85rem; }
+.mrow i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); }
+.mrow small { display: block; opacity: .65; font-size: .72rem; }
+@media (prefers-reduced-motion: reduce) { .gar, .ice, .wavep, .glasswrap.glow #glass, .reveal { animation: none; } .fx { display: none; } }
+#bjPane, #barPane { position: relative; }
+@media (prefers-reduced-motion: reduce) { .glasswrap.shake, .liq, .bub { animation: none; } }
+.bjtop { display: flex; justify-content: space-between; align-items: baseline; font-size: .88rem; gap: 8px; }
+.bjtop b { color: var(--gold); font-size: 1.05rem; }
+#streak { color: var(--gold); font-weight: 700; min-width: 0; font-size: .8rem; }
+.rtrack { margin-top: 8px; min-height: 34px; }
+.rtrack .chip { width: 34px; height: 34px; font-size: .7rem; }
+button.chip { font-family: inherit; cursor: pointer; }
+.betrow, .cntrow { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 12px; font-size: .82rem; }
+.bchip { width: 44px !important; height: 44px !important; font-size: .9rem !important; }
+.bchip[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 2px; }
+.bchip:disabled { opacity: .35; cursor: not-allowed; }
+.tab[aria-pressed="true"] { background: linear-gradient(#f6d77a, var(--gold)); color: #2a1c02; border-color: #fff3b8; }
+.card.flip { animation: flip .45s ease-out; }
+@keyframes flip { from { transform: rotateY(90deg); } }
+.delta { position: absolute; left: 50%; top: 44%; font: 700 2.2rem Georgia, serif; color: var(--gold); pointer-events: none; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+.delta.neg { color: #ff6b5a; }
+.delta.show { animation: floatup 1.5s ease-out; }
+@keyframes floatup { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.7); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -60px); } }
+@media (prefers-reduced-motion: reduce) { .card.new, .card.flip { animation: none; } .delta.show { animation: none; opacity: 1; transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { #wheel { transition: none; } .die.falling { animation: none; opacity: .15; transform: translateY(60px) rotate(30deg); } .die.rolling { animation: none; } .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Casino<span>♦</span>hry</h1>
+  <p class="sub">Vsaďte na štěstí.</p>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabDice" aria-selected="true">Kostka</button>
+    <button class="tab" role="tab" id="tabRoul" aria-selected="false">Ruleta</button>
+    <button class="tab" role="tab" id="tabBj" aria-selected="false">Black Jack</button>
+    <button class="tab" role="tab" id="tabBar" aria-selected="false">Bar</button>
+  </div>
+<div id="dicePane">
+
+  <div class="stage"><div id="die" class="die empty" role="img" aria-label="Kostka, zatím nehozeno"></div></div>
+  <p id="msg" class="msg"></p>
+  <p id="live" class="sr" aria-live="polite"></p>
+
+  <button id="roll" type="button">Hodit kostkou</button>
+  <p class="hint">Mezerník nebo Enter také hází.</p>
+
+  <label class="chance" for="chance">Šance, že kostka spadne ze stolu: <b id="chanceOut">5 %</b></label>
+  <input id="chance" type="range" min="0" max="50" step="1" value="5">
+
+  <section class="panel">
+    <h2>Žetony posledních hodů</h2>
+    <div id="history" class="history"><span class="empty-msg">Zatím jste nehodili.</span></div>
+    <p id="fallrow" class="fallrow"></p>
+    <div id="stats" class="stats"></div>
+    <p class="note">Čárka v grafu značí teoretickou šanci každého čísla: 1/6 = 16,7 %. Naměřené podíly se k ní blíží s přibývajícími hody.</p>
+    <button id="reset" type="button">Vymazat historii</button>
+  </section>
+</div>
+
+<div id="roulettePane" hidden>
+  <div class="wheelwrap"><svg id="wheel" viewBox="-100 -100 200 200" role="img" aria-label="Ruletové kolo"></svg><div class="pointer"></div><div class="ball"></div></div>
+  <p id="rmsg" class="msg"></p>
+  <p class="bank">Žetony: <b id="bank">100</b>. Sázka je 10 žetonů na:</p>
+  <div class="bets">
+    <button class="bet" data-bet="red" aria-pressed="false">Červená, výhra ×2</button>
+    <button class="bet" data-bet="black" aria-pressed="false">Černá, výhra ×2</button>
+    <button class="bet" data-bet="green" aria-pressed="false">Zelená 0, výhra ×36</button>
+  </div>
+  <button id="spin" type="button">Roztočit ruletu</button>
+  <p class="hint">Bez vybrané sázky se ruleta jen točí. Mezerník také točí.</p>
+  <section class="panel">
+    <h2>Poslední výsledky</h2>
+    <div id="rhist" class="history"><span class="empty-msg">Zatím se netočilo.</span></div>
+    <div id="rstats" class="stats"></div>
+    <p class="note">Čárka v grafu je teoretická šance: červená a černá po 18/37 = 48,6 %, zelená nula 1/37 = 2,7 %.</p>
+    <button id="rreset" type="button">Vymazat historii a doplnit žetony</button>
+  </section>
+</div>
+
+<div id="bjPane" hidden>
+  <div class="bjtop"><span>Kolo <b id="rnd">1</b> z <b id="rtot">10</b></span><span id="streak"></span><span>Žetony <b id="bjbank">100</b></span></div>
+  <div id="rtrack" class="history rtrack"></div>
+  <div class="hand"><h3>Krupiér <span id="dsum"></span></h3><div id="dcards" class="cards"></div></div>
+  <div class="hand"><h3>Vy <span id="psum"></span></h3><div id="pcards" class="cards"></div></div>
+  <span id="delta" class="delta"></span>
+  <p id="bjmsg" class="msg"></p>
+  <p id="bust" class="note"></p>
+  <div class="acts">
+    <button class="tab" id="hit" disabled>Líznout</button>
+    <button class="tab" id="stand" disabled>Stát</button>
+    <button class="tab" id="dbl" disabled>Zdvojit</button>
+  </div>
+  <div class="betrow" id="betrow">Sázka:</div>
+  <div class="cntrow" id="cntrow">Počet kol:</div>
+  <button id="deal" type="button">Rozdat karty</button>
+  <p class="hint">Krupiér stojí na 17. Black Jack platí 3:2. Mezerník rozdává.</p>
+  <section class="panel">
+    <h2>Výsledky kol</h2>
+    <div id="bjstats" class="stats"><span class="empty-msg">Zatím se nehrálo.</span></div>
+    <p class="note">Čárka je přibližný výsledek při správné strategii: výhra 42 %, remíza 8 %, prohra 49 %.</p>
+    <button id="bjreset" type="button">Nová hra a doplnění žetonů</button>
+  </section>
+</div>
+
+<div id="barPane" hidden>
+  <div class="bjtop" id="bartop"><span>Drink <b id="bno">1</b> z 5</span><span id="bscore"></span><span>Žetony <b id="barbank">100</b></span></div>
+  <div class="cntrow" id="moderow">Režim:</div>
+  <div class="order" id="orderbox"><b id="oname"></b><div id="orecipe" class="recipe"></div></div>
+  <div class="timer" id="timer"><i id="tbar"></i></div>
+  <div class="glasswrap" id="glasswrap">
+    <svg id="glass" viewBox="0 0 120 160" role="img" aria-label="Sklenice s drinkem">
+      <defs><clipPath id="gclip"><path d="M18 10H102L90 150H30Z"/></clipPath></defs>
+      <g id="liquid" clip-path="url(#gclip)"></g>
+      <g clip-path="url(#gclip)">
+        <g id="waveg" style="display:none"><path class="wavep" d="M-40 0Q-25 -4 -10 0T20 0T50 0T80 0T110 0T140 0T170 0V14H-40Z"/></g>
+        <g id="ice"></g>
+      </g>
+      <g id="bubbles" clip-path="url(#gclip)" style="display:none">
+        <circle class="bub" cx="42" cy="146" r="2.6"/><circle class="bub" cx="56" cy="146" r="2" style="animation-delay:-.6s"/>
+        <circle class="bub" cx="70" cy="146" r="2.8" style="animation-delay:-1.2s"/><circle class="bub" cx="82" cy="146" r="2.2" style="animation-delay:-.3s"/>
+        <circle class="bub" cx="50" cy="146" r="1.8" style="animation-delay:-1.5s"/><circle class="bub" cx="76" cy="146" r="2.4" style="animation-delay:-.9s"/>
+      </g>
+      <g id="straw" class="gar" style="display:none"><path d="M80 -14L64 142" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M80 -14L64 142" stroke="#d1243b" stroke-width="5" stroke-linecap="round" stroke-dasharray="7 7"/></g>
+      <path d="M18 10H102L90 150H30Z" fill="rgba(255,255,255,.06)" stroke="#f4efdc" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M27 20L34 138" stroke="rgba(255,255,255,.35)" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <g id="lime" class="gar" style="display:none"><circle cx="102" cy="10" r="12" fill="#7fb335"/><circle cx="102" cy="10" r="8.5" fill="#cfe58a"/><path d="M102 10V1.5M102 10L108 4M102 10L108 16M102 10H110.5" stroke="#7fb335" stroke-width="1"/></g>
+      <g id="orange" class="gar" style="display:none;animation-delay:.15s"><circle cx="18" cy="10" r="12" fill="#e8841a"/><circle cx="18" cy="10" r="8.5" fill="#ffc46b"/><path d="M18 10V1.5M18 10L12 4M18 10L12 16M18 10H9.5" stroke="#e8841a" stroke-width="1"/></g>
+      <g id="cherry" class="gar" style="display:none;animation-delay:.3s"><path d="M60 8Q58 -6 68 -10" stroke="#3b6a1f" stroke-width="1.6" fill="none"/><circle cx="60" cy="12" r="7" fill="#b3122d"/><circle cx="58" cy="9.5" r="2" fill="rgba(255,255,255,.55)"/></g>
+    </svg>
+    <div id="fx" class="fx"></div>
+  </div>
+  <p id="barmsg" class="msg"></p>
+  <div id="profile" class="profile" hidden><b id="pname"></b><div id="pbars"></div></div>
+  <div id="ings" class="ings"></div>
+  <div class="acts"><button class="tab" id="clear">Vylít</button></div>
+  <div class="cntrow" id="diffrow">Obtížnost:</div>
+  <button id="serve" type="button">Protřepat a podat</button>
+  <p class="hint">Klepněte na surovinu pro jeden díl, podržením nalijete víc. Led (až 3 kostky) nezabírá objem. Mezerník podává.</p>
+  <section class="panel" id="shiftpanel">
+    <h2>Výsledky směny</h2>
+    <div id="bres" class="history"><span class="empty-msg">Zatím jste nepodali žádný drink.</span></div>
+    <p id="bavg" class="fallrow"></p>
+    <p class="note">Přesnost = jak blízko jsou díly receptu. Spropitné: od 50 % 5 žetonů, od 70 % 10, od 90 % 20, rychlost přidá 5. Kombo (drinky po sobě s 80 %+) násobí spropitné ×1,5 a ×2, těžká obtížnost (recept zmizí po 5 s) ×2.</p>
+  </section>
+  <section class="panel" id="minebox" hidden>
+    <h2>Moje drinky</h2>
+    <div id="mine" class="stats"></div>
+    <p class="note">Vyváženost hodnotí poměr alkoholu (nejlépe zhruba třetina), sladkosti a kyselosti a pestrost surovin. Ve volném míchání se žetony nepřičítají.</p>
+    <button id="minereset" type="button">Vymazat moje drinky</button>
+  </section>
+</div>
+</main>
+
+<script>
+const FACES = { // pozice teček v mřížce 3×3 (index 0–8)
+  1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+};
+const $ = id => document.getElementById(id);
+const die = $("die"), btn = $("roll"), hist = $("history"), stats = $("stats"), live = $("live"), msg = $("msg"), chanceEl = $("chance"), fallrow = $("fallrow");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let rolls = [], busy = false;
+
+for (let i = 0; i < 9; i++) die.append(Object.assign(document.createElement("span"), { className: "pip" }));
+const pips = [...die.children];
+
+function show(n) {
+  pips.forEach((p, i) => p.classList.toggle("on", FACES[n].includes(i)));
+  die.classList.remove("empty");
+  die.setAttribute("aria-label", "Kostka ukazuje " + n);
+}
+
+function randomFace() { // rovnoměrné číslo 1–6 z kryptograficky bezpečného zdroje
+  const a = new Uint32Array(1);
+  do { crypto.getRandomValues(a); } while (a[0] >= 4294967292); // bez zkreslení
+  return (a[0] % 6) + 1;
+}
+
+function randomFloat() {
+  const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296;
+}
+
+function render() {
+  const valid = rolls.filter(r => r > 0), falls = rolls.length - valid.length;
+  hist.replaceChildren();
+  if (!rolls.length) hist.innerHTML = '<span class="empty-msg">Zatím jste nehodili.</span>';
+  rolls.slice(-12).reverse().forEach(n => {
+    const c = document.createElement("span"); c.className = n ? "chip" : "chip fall"; c.textContent = n || "✕"; c.dataset.n = n; c.title = n ? "Hod " + n : "Spadla ze stolu"; hist.append(c);
+  });
+    stats.replaceChildren();
+  if (valid.length) for (let n = 1; n <= 6; n++) {
+    const k = valid.filter(r => r === n).length;
+    const row = document.createElement("div"); row.className = "row";
+    const pct = k / valid.length * 100;
+    row.innerHTML = `<span>${n}</span><div class="bar"><i style="width:${pct}%"></i></div><b>${pct.toFixed(1).replace(".", ",")} % <small>(${k}×)</small></b>`;
+    stats.append(row);
+  }
+  const fp = rolls.length ? falls / rolls.length * 100 : 0;
+  fallrow.textContent = rolls.length
+    ? `Spadla ze stolu: ${falls}× (${fp.toFixed(1).replace(".", ",")} % ze všech hodů)` : "";
+}
+
+function roll() {
+  if (busy) return;
+  busy = true; btn.disabled = true;
+  const result = randomFace();
+  const fell = randomFloat() < chanceEl.value / 100;
+  msg.textContent = ""; die.classList.remove("falling");
+  die.classList.remove("rolling"); void die.offsetWidth;
+  if (!reduce) die.classList.add("rolling");
+
+  const finish = () => {
+    if (fell) {
+      die.classList.remove("rolling"); die.classList.add("falling");
+      rolls.push(0); render();
+      msg.textContent = "Kostka spadla ze stolu! Hoďte znovu.";
+      live.textContent = "Kostka spadla ze stolu";
+      setTimeout(() => { busy = false; btn.disabled = false; }, reduce ? 0 : 900);
+      return;
+    }
+    show(result); rolls.push(result); render();
+    live.textContent = "Padlo " + result;
+    busy = false; btn.disabled = false;
+  };
+  if (reduce) return finish();
+
+  const t = setInterval(() => show(randomFace()), 90); // střídání tváří během hodu
+  setTimeout(() => { clearInterval(t); finish(); }, 700);
+}
+
+btn.addEventListener("click", roll);
+document.addEventListener("keydown", e => {
+  if (e.code !== "Space" || /^(BUTTON|INPUT)$/.test(document.activeElement.tagName)) return;
+  e.preventDefault();
+  if (!$("dicePane").hidden) roll();
+  else if (!$("roulettePane").hidden) spin();
+  else if (!$("bjPane").hidden) { if (phase !== "player") deal(); }
+  else serve();
+});
+chanceEl.addEventListener("input", () => { $("chanceOut").textContent = chanceEl.value + " %"; });
+$("reset").addEventListener("click", () => {
+  rolls = []; render(); msg.textContent = ""; die.classList.remove("falling");
+  pips.forEach(p => p.classList.remove("on")); die.classList.add("empty");
+  die.setAttribute("aria-label", "Kostka, zatím nehozeno");
+});
+render();
+
+/* ===== Ruleta ===== */
+const ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const colorOf = n => n === 0 ? "green" : REDS.has(n) ? "red" : "black";
+const COL = { red: "#c92b2b", black: "#1a1a1a", green: "#1e8a4c" };
+const NAME = { red: "červená", black: "černá", green: "zelená" };
+const PAY = { red: 2, black: 2, green: 36 }, THEORY = { red: 18/37, black: 18/37, green: 1/37 };
+const STEP = 360 / 37;
+const wheel = $("wheel"), spinBtn = $("spin"), rmsg = $("rmsg");
+let ang = 0, spinning = false, bank = 100, bet = null, rres = [];
+
+function randInt(n) {
+  const a = new Uint32Array(1), lim = Math.floor(4294967296 / n) * n;
+  do { crypto.getRandomValues(a); } while (a[0] >= lim);
+  return a[0] % n;
+}
+
+(function buildWheel() {
+  const pt = (r, a) => [(r * Math.sin(a)).toFixed(2), (-r * Math.cos(a)).toFixed(2)];
+  let h = '<circle r="99" fill="#4a2814"/><circle r="96" fill="none" stroke="#e8c15a" stroke-width="1.5"/>';
+  ORDER.forEach((n, i) => {
+    const a0 = (i - .5) * STEP * Math.PI / 180, a1 = (i + .5) * STEP * Math.PI / 180;
+    const [x0, y0] = pt(94, a0), [x1, y1] = pt(94, a1), [x2, y2] = pt(62, a1), [x3, y3] = pt(62, a0);
+    h += `<path d="M${x0} ${y0}A94 94 0 0 1 ${x1} ${y1}L${x2} ${y2}A62 62 0 0 0 ${x3} ${y3}Z" fill="${COL[colorOf(n)]}" stroke="#e8c15a" stroke-width=".4"/>`;
+    h += `<text transform="rotate(${(i * STEP).toFixed(3)}) translate(0 -79)" text-anchor="middle" dominant-baseline="central" font-size="7.5" font-weight="700" fill="#fff" font-family="Trebuchet MS, sans-serif">${n}</text>`;
+  });
+  h += '<circle r="54" fill="#0b3b27" stroke="#e8c15a" stroke-width="1.5"/><circle r="16" fill="#e8c15a"/><circle r="7" fill="#a8801f"/>';
+  wheel.innerHTML = h;
+})();
+
+function rrender() {
+  const h = $("rhist"); h.replaceChildren();
+  if (!rres.length) h.innerHTML = '<span class="empty-msg">Zatím se netočilo.</span>';
+  rres.slice(-12).reverse().forEach(n => {
+    const c = document.createElement("span"); c.className = "chip"; c.textContent = n;
+    c.style.setProperty("--c", COL[colorOf(n)]); c.title = n + ", " + NAME[colorOf(n)]; h.append(c);
+  });
+  const st = $("rstats"); st.replaceChildren();
+  if (rres.length) ["red", "black", "green"].forEach(k => {
+    const c = rres.filter(n => colorOf(n) === k).length, pct = c / rres.length * 100;
+    const row = document.createElement("div"); row.className = "row r";
+    row.innerHTML = `<span>${NAME[k]}</span><div class="bar" style="--t:${THEORY[k] * 100}%"><i style="width:${pct}%"></i></div><b>${pct.toFixed(1).replace(".", ",")} % <small>(${c}×)</small></b>`;
+    st.append(row);
+  });
+  $("bank").textContent = bank;
+}
+
+function spin() {
+  if (spinning) return;
+  if (bet && bank < 10) { rmsg.textContent = "Nemáte dost žetonů na sázku."; return; }
+  spinning = true; spinBtn.disabled = true; rmsg.textContent = "";
+  if (bet) bank -= 10;
+  $("bank").textContent = bank;
+  const i = randInt(37), n = ORDER[i], k = colorOf(n);
+  ang += (((360 - i * STEP) % 360 - ang) % 360 + 360) % 360 + 360 * (5 + randInt(3));
+  wheel.style.transform = `rotate(${ang}deg)`;
+  setTimeout(() => {
+    rres.push(n);
+    let t = `Padlo ${n}, ${NAME[k]}.`;
+    if (bet) {
+      if (bet === k) { const w = 10 * PAY[k]; bank += w; t += ` Vyhráváte ${w} žetonů!`; }
+      else t += " Sázka propadla.";
+    }
+    rmsg.textContent = t; live.textContent = t; rrender();
+    spinning = false; spinBtn.disabled = false;
+  }, reduce ? 0 : 4300);
+}
+
+spinBtn.addEventListener("click", spin);
+document.querySelectorAll(".bet").forEach(b => b.addEventListener("click", () => {
+  bet = bet === b.dataset.bet ? null : b.dataset.bet;
+  document.querySelectorAll(".bet").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.bet === bet)));
+}));
+$("rreset").addEventListener("click", () => { rres = []; bank = 100; rmsg.textContent = ""; rrender(); bjrender(); });
+
+
+/* ===== Black Jack ===== */
+const SUITS = ["♠", "♥", "♦", "♣"], RANKS = ["A",2,3,4,5,6,7,8,9,10,"J","Q","K"];
+let deck = [], ph = [], dh = [], phase = "idle", stake = 10, bj = { win: 0, push: 0, lose: 0 };
+let bjBet = 10, rounds = 10, played = 0, nets = [], streak = 0, bjBusy = false;
+const bjmsg = $("bjmsg"), sleep = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+
+function newDeck() {
+  deck = SUITS.flatMap(su => RANKS.map(r => ({ r, su })));
+  for (let i = deck.length - 1; i > 0; i--) { const j = randInt(i + 1); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+}
+const total = h => {
+  let t = 0, a = 0;
+  h.forEach(c => { if (c.r === "A") { t += 11; a++; } else t += typeof c.r === "number" ? c.r : 10; });
+  while (t > 21 && a) { t -= 10; a--; }
+  return t;
+};
+const draw = () => deck.pop();
+const inRound = () => ["dealing", "player", "dealer"].includes(phase);
+const isOver = () => played >= rounds || (!inRound() && bank < 5);
+
+// vytvoření voleb sázky a počtu kol
+[5, 10, 25, 50].forEach((v, i) => {
+  const b = document.createElement("button"); b.className = "chip bchip"; b.textContent = v; b.dataset.v = v;
+  b.style.setProperty("--c", ["#c92b2b", "#1f56b5", "#1e8a4c", "#202020"][i]);
+  b.addEventListener("click", () => { bjBet = v; bjrender(); }); $("betrow").append(b);
+});
+[5, 10, 20].forEach(v => {
+  const b = document.createElement("button"); b.className = "tab"; b.textContent = v; b.dataset.v = v;
+  b.addEventListener("click", () => { rounds = v; bjrender(); }); $("cntrow").append(b);
+});
+
+function drawHand(el, hand, hideSecond) {
+  const old = +(el.dataset.n || 0); el.replaceChildren();
+  hand.forEach((c, i) => {
+    const d = document.createElement("div");
+    if (hideSecond && i === 1) d.className = "card back";
+    else { d.className = "card" + (c.su === "♥" || c.su === "♦" ? " red" : "") + (i >= old ? " new" : "");
+      d.innerHTML = `<b>${c.r}${c.su}</b><i>${c.su}</i>`; }
+    el.append(d);
+  });
+  el.dataset.n = hand.length;
+}
+
+function bustChance() {
+  const unseen = deck.concat(dh.length > 1 ? [dh[1]] : []); // skrytá karta krupiéra je pro vás neznámá
+  return unseen.filter(c => total(ph.concat(c)) > 21).length / unseen.length * 100;
+}
+
+function bjrender() {
+  const hide = phase === "player" || phase === "dealing", play = phase === "player" && !bjBusy, over = isOver();
+  drawHand($("dcards"), dh, hide); drawHand($("pcards"), ph, false);
+  $("dsum").textContent = dh.length ? "(" + (hide ? total([dh[0]]) : total(dh)) + ")" : "";
+  $("psum").textContent = ph.length ? "(" + total(ph) + ")" : "";
+  $("hit").disabled = $("stand").disabled = !play;
+  $("dbl").disabled = !(play && ph.length === 2 && bank >= bjBet);
+  $("deal").disabled = bjBusy || phase === "player";
+  $("deal").textContent = over ? "Nová hra" : "Rozdat karty (kolo " + Math.min(played + 1, rounds) + ")";
+  $("bust").textContent = play ? "Šance na přetažení při lízání: " + bustChance().toFixed(1).replace(".", ",") + " %" : "";
+  $("bjbank").textContent = bank; $("bank").textContent = bank;
+  $("rnd").textContent = Math.min(played + (inRound() ? 1 : 0) || 1, rounds); $("rtot").textContent = rounds;
+  $("streak").textContent = streak >= 2 ? "Série výher: " + streak : streak <= -2 ? "Série proher: " + -streak : "";
+  document.querySelectorAll(".bchip").forEach(b => {
+    b.setAttribute("aria-pressed", String(+b.dataset.v === bjBet)); b.disabled = inRound() || +b.dataset.v > bank; });
+  document.querySelectorAll("#cntrow .tab").forEach(b => {
+    b.setAttribute("aria-pressed", String(+b.dataset.v === rounds)); b.disabled = played > 0 || inRound(); });
+  const tr = $("rtrack"); tr.replaceChildren();
+  nets.forEach(n => { const c = document.createElement("span"); c.className = "chip";
+    c.style.setProperty("--c", n > 0 ? "#1e8a4c" : n < 0 ? "#c92b2b" : "#6b6b6b"); c.textContent = n > 0 ? "+" + n : n; tr.append(c); });
+  const n = bj.win + bj.push + bj.lose, st = $("bjstats"); st.replaceChildren();
+  if (!n) st.innerHTML = '<span class="empty-msg">Zatím se nehrálo.</span>';
+  else [["win", "výhry", 42.2], ["push", "remízy", 8.5], ["lose", "prohry", 49.1]].forEach(([k, name, th]) => {
+    const pct = bj[k] / n * 100, row = document.createElement("div"); row.className = "row r";
+    row.innerHTML = `<span>${name}</span><div class="bar" style="--t:${th}%"><i style="width:${pct}%"></i></div><b>${pct.toFixed(1).replace(".", ",")} % <small>(${bj[k]}×)</small></b>`;
+    st.append(row);
+  });
+}
+
+function finish(res, text) {
+  const net = res === "bj" ? stake * 1.5 : res === "win" ? stake : res === "push" ? 0 : -stake;
+  bank += stake + net; phase = "done"; bjBusy = false; played++; nets.push(net);
+  bj[res === "bj" || res === "win" ? "win" : res === "push" ? "push" : "lose"]++;
+  if (net > 0) streak = streak > 0 ? streak + 1 : 1; else if (net < 0) streak = streak < 0 ? streak - 1 : -1;
+  if (isOver()) {
+    const sum = nets.reduce((a, b) => a + b, 0);
+    text += ` Konec hry po ${played} kolech. Bilance ${sum > 0 ? "+" : ""}${sum} žetonů, máte ${bank}.`;
+  }
+  bjmsg.textContent = text; live.textContent = text;
+  const d = $("delta"); d.textContent = net > 0 ? "+" + net : net < 0 ? String(net) : "±0";
+  d.className = "delta" + (net < 0 ? " neg" : ""); void d.offsetWidth; d.classList.add("show");
+  bjrender();
+}
+
+async function revealDealer() {
+  phase = "dealer"; bjrender();
+  $("dcards").children[1]?.classList.add("flip"); await sleep(550);
+  while (total(dh) < 17) { dh.push(draw()); bjrender(); await sleep(650); }
+}
+
+function newGame() {
+  bj = { win: 0, push: 0, lose: 0 }; nets = []; played = 0; streak = 0; ph = []; dh = []; phase = "idle";
+  if (bank < 5) bank = 100;
+  bjBet = Math.min(bjBet, bank); bjmsg.textContent = ""; $("delta").className = "delta"; bjrender();
+}
+
+async function deal() {
+  if (bjBusy || phase === "player") return;
+  if (isOver()) return newGame();
+  if (bank < bjBet) bjBet = [50, 25, 10, 5].find(v => v <= bank);
+  bjBusy = true; if (deck.length < 15) newDeck();
+  bank -= bjBet; stake = bjBet; bjmsg.textContent = ""; $("delta").className = "delta";
+  $("dcards").dataset.n = 0; $("pcards").dataset.n = 0; ph = []; dh = []; phase = "dealing"; bjrender();
+  for (const who of [ph, dh, ph, dh]) { who.push(draw()); bjrender(); await sleep(380); }
+  phase = "player";
+  const p21 = total(ph) === 21, d21 = total(dh) === 21;
+  if (p21 || d21) {
+    await revealDealer();
+    if (p21 && d21) return finish("push", "Oba máte Black Jack. Remíza, sázka se vrací.");
+    if (p21) return finish("bj", `Black Jack! Zisk ${stake * 1.5} žetonů (výplata 3:2).`);
+    return finish("lose", `Krupiér má Black Jack. Prohráváte ${stake}.`);
+  }
+  bjBusy = false; bjrender();
+}
+
+async function stand() {
+  bjBusy = true; bjrender(); await revealDealer();
+  const p = total(ph), d = total(dh);
+  if (d > 21) finish("win", `Krupiér přetáhl (${d}). Vyhráváte ${stake}.`);
+  else if (p > d) finish("win", `${p} proti ${d}. Vyhráváte ${stake}.`);
+  else if (p === d) finish("push", `Remíza ${p}. Sázka se vrací.`);
+  else finish("lose", `${p} proti ${d}. Prohráváte ${stake}.`);
+}
+
+async function hit() {
+  ph.push(draw()); const t = total(ph);
+  if (t > 21) { bjBusy = true; await revealDealer(); finish("lose", `Přetáhli jste (${t}). Prohráváte ${stake}.`); }
+  else if (t === 21) stand(); else bjrender();
+}
+
+async function dbl() {
+  bjBusy = true; bank -= bjBet; stake = bjBet * 2; ph.push(draw()); bjrender(); await sleep(500);
+  const t = total(ph);
+  if (t > 21) { await revealDealer(); finish("lose", `Přetáhli jste (${t}). Prohráváte ${stake}.`); } else stand();
+}
+
+$("deal").addEventListener("click", deal);
+$("hit").addEventListener("click", hit);
+$("stand").addEventListener("click", stand);
+$("dbl").addEventListener("click", dbl);
+$("bjreset").addEventListener("click", () => { if (!bjBusy && !inRound()) { bank = 100; newGame(); rrender(); } });
+
+/* ===== Bar ===== */
+const ING = { rum: ["Rum", "#b8742b"], vodka: ["Vodka", "#e9eef1"], gin: ["Gin", "#c8dbe0"], tequila: ["Tequila", "#f2d27a"],
+  whisky: ["Whisky", "#d99a3a"], tripsec: ["Triple sec", "#f4c27a"], kahlua: ["Kahlúa", "#4a2c1a"], aperol: ["Aperol", "#ff6a2b"],
+  prosecco: ["Prosecco", "#f3e7a6"], vermouth: ["Vermut", "#b44a5d"],
+  lime: ["Limeta", "#9ccc4f"], syrup: ["Sirup", "#f0d9a0"], oj: ["Pomeranč", "#f59b23"], gren: ["Grenadina", "#d1243b"],
+  cola: ["Cola", "#3a2216"], soda: ["Soda", "#cfe9f2"], tonic: ["Tonik", "#dff0e6"], ginger: ["Zázvor", "#e0b954"] };
+const ALC = ["rum", "vodka", "gin", "tequila", "whisky", "tripsec", "kahlua", "aperol", "prosecco", "vermouth"];
+const ICE_DEF = ["Led", "#cfeaff"], ingOf = id => id === "ice" ? ICE_DEF : ING[id];
+// vlastnosti jednoho dílu: [alkohol, sladkost, kyselost, šumivost]
+const ATTR = { rum: [3,0,0,0], vodka: [3,0,0,0], gin: [3,0,0,0], tequila: [3,0,0,0], whisky: [3,0,0,0], tripsec: [2,1,0,0], kahlua: [2,2,0,0],
+  aperol: [1.5,1.5,0,0], prosecco: [1.5,.5,0,2.5], vermouth: [2,1,0,0], lime: [0,0,3,0], syrup: [0,3,0,0], oj: [0,1,1,0],
+  gren: [0,2,0,0], cola: [0,1,0,2], soda: [0,0,0,3], tonic: [0,.5,0,2], ginger: [0,.5,0,2] };
+const ADJ = { rum: "Pirátský", vodka: "Ledový", gin: "Zahradní", tequila: "Pouštní", whisky: "Zlatý", tripsec: "Citrusový", kahlua: "Kávový",
+  aperol: "Korálový", prosecco: "Zářivý", vermouth: "Elegantní", lime: "Svěží", syrup: "Sladký", oj: "Slunečný",
+  gren: "Rubínový", cola: "Černý", soda: "Jiskřivý", tonic: "Hořký", ginger: "Pálivý" };
+const RECIPES = [["Cuba Libre", { rum: 2, cola: 4, lime: 1, ice: 2 }], ["Mojito", { rum: 2, lime: 1, syrup: 1, soda: 3, ice: 2 }],
+  ["Šroubovák", { vodka: 2, oj: 4, ice: 1 }], ["Tequila Sunrise", { tequila: 2, oj: 4, gren: 1, ice: 2 }],
+  ["Daiquiri", { rum: 3, lime: 1, syrup: 1, ice: 1 }], ["Moscow Mule", { vodka: 2, lime: 1, ginger: 4, ice: 2 }],
+  ["Margarita", { tequila: 2, tripsec: 1, lime: 1, ice: 1 }], ["Gin Tonic", { gin: 2, tonic: 4, lime: 1, ice: 2 }],
+  ["Whisky Sour", { whisky: 2, lime: 1, syrup: 1, ice: 1 }], ["Black Russian", { vodka: 2, kahlua: 1, ice: 2 }],
+  ["Aperol Spritz", { aperol: 3, prosecco: 3, soda: 1, ice: 2 }], ["Manhattan", { whisky: 2, vermouth: 1, ice: 1 }]];
+const GUESTS = ["Tomáš", "Lucie", "Martin", "Eva", "Petr", "Klára", "Honza", "Anna"];
+const CAP = 9, DRINKS = 5, GH = 140 / CAP, FIZZ = new Set(["cola", "soda", "tonic", "ginger", "prosecco"]);
+let order = null, glass = [], tleft = 40, bphase = "mixing", bres = [], lastR = -1, hard = false, combo = 0, lastHidden = false, holdT, holdI;
+let free = false, mine = [], iceN = 0;
+const ICEPOS = [[44, -1, 12], [62, 3, -18], [80, -2, 22]];
+const barmsg = $("barmsg"), tmax = () => order[3];
+const isHidden = () => !free && hard && bphase === "mixing" && tmax() - tleft > 5;
+const stopHold = () => { clearTimeout(holdT); clearInterval(holdI); };
+const pour = id => { if (bphase === "mixing" && glass.length < CAP) { glass.push(id); barrender(); } else stopHold(); };
+
+function makeBtn(id, name, col, add) {
+  const b = document.createElement("button"); b.className = "ing"; b.dataset.id = id;
+  b.innerHTML = `<i style="background:${col}"></i>${name}<b hidden></b>`;
+  b.addEventListener("pointerdown", e => { if (e.button > 0) return; add(); holdT = setTimeout(() => { holdI = setInterval(add, 260); }, 420); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, stopHold));
+  b.addEventListener("click", e => { if (e.detail === 0) add(); }); // ovládání klávesnicí
+  b.addEventListener("contextmenu", e => e.preventDefault());
+  $("ings").append(b);
+}
+const grp = t => { const q = document.createElement("p"); q.className = "grp"; q.textContent = t; $("ings").append(q); };
+const addIce = () => { if (bphase === "mixing" && iceN < 3) { iceN++; barrender(); } else stopHold(); };
+grp("Alkohol"); ALC.forEach(id => makeBtn(id, ING[id][0], ING[id][1], () => pour(id)));
+grp("Míchané"); Object.keys(ING).filter(id => !ALC.includes(id)).forEach(id => makeBtn(id, ING[id][0], ING[id][1], () => pour(id)));
+grp("Led (nezabírá objem, ochladí a zředí)"); makeBtn("ice", ICE_DEF[0], ICE_DEF[1], addIce);
+$("ice").innerHTML = [0, 1, 2].map(() => '<g class="icg" style="display:none"><rect class="ice" x="-7" y="-7" width="14" height="14" rx="3"/></g>').join("");
+[["Lehká", false], ["Těžká", true]].forEach(([n, v]) => {
+  const b = document.createElement("button"); b.className = "tab"; b.textContent = n; b.dataset.v = v;
+  b.addEventListener("click", () => { hard = v; newOrder(); }); $("diffrow").append(b);
+});
+[["Zakázky", false], ["Volné míchání", true]].forEach(([n, v]) => {
+  const b = document.createElement("button"); b.className = "tab"; b.textContent = n; b.dataset.v = v;
+  b.addEventListener("click", () => { if (free === v || bphase === "serving") return; free = v; free ? newFree() : newShift(); });
+  $("moderow").append(b);
+});
+
+const countOf = () => glass.reduce((m, id) => (m[id] = (m[id] || 0) + 1, m), {});
+const mixColor = () => {
+  if (!glass.length) return "#888";
+  const t = [0, 0, 0]; glass.forEach(id => [1, 3, 5].forEach((k, j) => t[j] += parseInt(ING[id][1].slice(k, k + 2), 16)));
+  return "rgb(" + t.map(v => Math.round(v / glass.length)).join(",") + ")";
+};
+const stars = a => { const n = a >= 90 ? 5 : a >= 75 ? 4 : a >= 60 ? 3 : a >= 40 ? 2 : 1; return "★".repeat(n) + "☆".repeat(5 - n); };
+
+/* --- efekty výsledku --- */
+function undecorate() {
+  ["waveg", "straw", "lime", "orange", "cherry"].forEach(id => $(id).style.display = "none");
+  $("glasswrap").classList.remove("glow", "shake"); $("fx").replaceChildren(); $("profile").hidden = true;
+}
+function decorate() {
+  if (!glass.length) return;
+  const sy = 150 - glass.length * GH, mc = mixColor(), w = $("glasswrap");
+  $("waveg").setAttribute("transform", `translate(0 ${sy})`); $("waveg").firstElementChild.style.fill = mc; $("waveg").style.display = "";
+  $("straw").style.display = "";
+  $("lime").style.display = glass.includes("lime") ? "" : "none";
+  $("orange").style.display = glass.includes("oj") || glass.includes("aperol") ? "" : "none";
+  $("cherry").style.display = glass.includes("gren") ? "" : "none";
+  w.style.setProperty("--gl", mc); w.classList.add("glow");
+}
+function burst() {
+  if (reduce) return;
+  const fx = $("fx"), cols = [...new Set(glass)].map(id => ING[id][1]).concat(["#e8c15a", "#fff3b8"]);
+  for (let i = 0; i < 34; i++) {
+    const p = document.createElement("span"), a = Math.random() * Math.PI * 2, d = 70 + Math.random() * 90, star = i % 5 === 0;
+    p.className = "pt" + (star ? " st" : ""); if (star) p.textContent = "✦";
+    p.style.setProperty("--dx", Math.cos(a) * d + "px"); p.style.setProperty("--dy", Math.sin(a) * d - 35 + "px");
+    p.style.setProperty("--r", Math.round(Math.random() * 720 - 360) + "deg"); p.style.background = cols[i % cols.length];
+    p.style.animationDelay = Math.random() * .15 + "s"; fx.append(p); setTimeout(() => p.remove(), 2000);
+  }
+}
+function countUp(el, to, ms) {
+  if (reduce) { el.textContent = to + " %"; return; }
+  const t0 = performance.now();
+  (function f(t) { const k = Math.min(1, (t - t0) / ms); el.textContent = Math.round(to * k) + " %"; if (k < 1) requestAnimationFrame(f); })(t0);
+}
+function showProfile(name, rows) {
+  const pn = $("pname"); pn.textContent = name; pn.className = ""; void pn.offsetWidth; pn.className = "reveal";
+  $("pbars").innerHTML = rows.map(([l], i) => `<div class="row r"><span>${l}</span><div class="bar" style="--t:-9%"><i style="width:0;transition:width .7s ${i * .12}s${i === rows.length - 1 ? ";background:linear-gradient(90deg,#fff3b8,#e8c15a)" : ""}"></i></div><b>0 %</b></div>`).join("");
+  $("profile").hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => $("pbars").querySelectorAll(".row").forEach((r, i) => {
+    r.querySelector("i").style.width = rows[i][1] + "%"; countUp(r.querySelector("b"), rows[i][1], 700 + i * 120); })));
+}
+function animateServe(done) { // třepání, smíchání barev, pak výsledek
+  const w = $("glasswrap"); w.classList.remove("shake", "glow"); void w.offsetWidth; w.classList.add("shake");
+  setTimeout(() => {
+    w.classList.remove("shake"); const mc = mixColor();
+    document.querySelectorAll("#liquid rect").forEach(r => r.style.fill = mc);
+    setTimeout(done, reduce ? 0 : 650);
+  }, reduce ? 0 : 700);
+}
+
+function barrender() {
+  const mixing = bphase === "mixing", cnt = countOf(), tg = order[1];
+  ["orderbox", "timer", "diffrow", "shiftpanel"].forEach(id => $(id).hidden = free);
+  $("minebox").hidden = !free; $("bartop").children[0].hidden = $("bartop").children[1].hidden = free;
+  $("oname").textContent = `${order[0]}, host ${order[2]}`;
+  $("orecipe").innerHTML = isHidden() ? "<span>Recept je skrytý, pamatujte si ho!</span>" :
+    Object.entries(tg).map(([id, n]) => { const c = id === "ice" ? iceN : cnt[id] || 0, cl = c === n ? "ok" : c > n ? "over" : "";
+      return `<span class="${cl}"><i style="background:${ingOf(id)[1]}"></i>${ingOf(id)[0]} ${c}/${n}</span>`; }).join("");
+  const lq = $("liquid"), old = +(lq.dataset.n || 0); lq.replaceChildren();
+  const mc = mixColor();
+  glass.forEach((id, i) => {
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", 0); r.setAttribute("width", 120); r.setAttribute("height", GH + .6); r.setAttribute("y", 150 - (i + 1) * GH);
+    r.setAttribute("fill", bphase === "result" ? mc : ING[id][1]); r.setAttribute("class", "liq");
+    if (i < old) r.style.animation = "none"; lq.append(r);
+  });
+  lq.dataset.n = glass.length;
+  $("bubbles").style.display = glass.length >= 3 && glass.some(id => FIZZ.has(id)) ? "" : "none";
+  $("bubbles").style.setProperty("--h", Math.max(10, glass.length * GH - 16) + "px");
+  document.querySelectorAll(".ing").forEach(b => {
+    const ic = b.dataset.id === "ice", c = ic ? iceN : cnt[b.dataset.id] || 0, bd = b.querySelector("b");
+    bd.hidden = !c; bd.textContent = c; b.disabled = !mixing || (ic ? iceN >= 3 : glass.length >= CAP); });
+  const sy = Math.min(150 - glass.length * GH, 138); // kostky plavou na hladině
+  [...$("ice").children].forEach((g, k) => { g.style.display = k < iceN ? "" : "none";
+    g.style.transform = `translate(${ICEPOS[k][0]}px, ${sy + ICEPOS[k][1]}px) rotate(${ICEPOS[k][2]}deg)`; });
+  document.querySelectorAll("#diffrow .tab").forEach(b => { b.setAttribute("aria-pressed", String((b.dataset.v === "true") === hard)); b.disabled = bres.length > 0; });
+  document.querySelectorAll("#moderow .tab").forEach(b => { b.setAttribute("aria-pressed", String((b.dataset.v === "true") === free)); b.disabled = bphase === "serving"; });
+  $("clear").disabled = !mixing || !(glass.length || iceN);
+  $("serve").disabled = bphase === "serving";
+  $("serve").textContent = bphase === "result" ? (free ? "Namíchat další" : bres.length >= DRINKS ? "Nová směna" : "Další host") : "Protřepat a podat";
+  $("bno").textContent = Math.min(bres.length + (bphase === "result" ? 0 : 1), DRINKS) || 1;
+  $("bscore").textContent = combo > 0 ? "Kombo: " + combo : "";
+  $("barbank").textContent = bank; $("bank").textContent = bank;
+  const h = $("bres"); h.replaceChildren();
+  if (!bres.length) h.innerHTML = '<span class="empty-msg">Zatím jste nepodali žádný drink.</span>';
+  bres.forEach(r => { const c = document.createElement("span"); c.className = "chip";
+    c.style.setProperty("--c", r.acc >= 80 ? "#1e8a4c" : r.acc >= 50 ? "#a8801f" : "#c92b2b"); c.textContent = r.acc + "%"; h.append(c); });
+  const tips = bres.reduce((a, r) => a + r.tip, 0), avg = bres.length ? Math.round(bres.reduce((a, r) => a + r.acc, 0) / bres.length) : 0;
+  $("bavg").textContent = bres.length ? `Průměrná přesnost: ${avg} % | Spropitné: ${tips} žetonů${bres.length >= DRINKS ? " | " + stars(avg) : ""}` : "";
+  const m = $("mine"); m.replaceChildren();
+  if (!mine.length) m.innerHTML = '<span class="empty-msg">Zatím jste nic nevymysleli.</span>';
+  mine.slice(-8).reverse().forEach(d => { const r = document.createElement("div"); r.className = "mrow";
+    r.innerHTML = `<i style="background:${d.col}"></i><span>${d.name}<small>${d.mix}</small></span><b>${d.score} %</b>`; m.append(r); });
+}
+
+function newOrder() {
+  let i; do { i = randInt(RECIPES.length); } while (i === lastR); lastR = i;
+  order = [...RECIPES[i], GUESTS[randInt(GUESTS.length)], 30 + randInt(4) * 5]; // trpělivost hosta 30 až 45 s
+  glass = []; iceN = 0; tleft = tmax(); bphase = "mixing"; barmsg.textContent = ""; lastHidden = false;
+  undecorate(); $("liquid").dataset.n = 0; $("tbar").style.width = "100%"; barrender();
+}
+function newShift() { bres = []; combo = 0; newOrder(); }
+function newFree() { glass = []; iceN = 0; bphase = "mixing"; barmsg.textContent = ""; undecorate(); $("liquid").dataset.n = 0; barrender(); }
+
+function serveFree() {
+  if (!glass.length) { barmsg.textContent = "Nejdřív něco nalijte do sklenice."; return; }
+  stopHold(); bphase = "serving"; barmsg.textContent = ""; $("profile").hidden = true; barrender();
+  const cnt = countOf(), n = glass.length, sum = [0, 0, 0, 0];
+  glass.forEach(id => ATTR[id].forEach((v, k) => sum[k] += v));
+  const nEff = n + iceN * .5, chill = Math.round(iceN / 3 * 100); // led mírně zředí drink
+  const pr = sum.map(v => Math.min(100, Math.round(v / (3 * nEff) * 100))); // síla, sladkost, kyselost, šumivost
+  const A = pr[0] / 100, S = pr[1] / 100, U = pr[2] / 100;
+  const alcS = 1 - Math.min(1, Math.abs(A - .33) / .33), ss = S + U > 0 ? 1 - Math.min(1, Math.abs(S - U) / (S + U)) : .3;
+  const score = Math.round(100 * (.4 * alcS + .3 * ss + .15 * Math.min(1, Object.keys(cnt).length / 3) + .15 * [.3, .8, 1, .8][iceN]));
+  const dom = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  const noun = pr[0] >= 60 ? "Úder" : pr[2] >= 35 ? "Šok" : pr[1] >= 35 ? "Sen" : pr[3] >= 45 ? "Šumák" : "Mix";
+  const name = `${ADJ[dom]} ${noun}`, mix = Object.entries(cnt).map(([id, k]) => `${ING[id][0]} ${k}`).concat(iceN ? ["Led " + iceN] : []).join(", ");
+  animateServe(() => {
+    bphase = "result"; mine.push({ name, mix, score, col: mixColor() });
+    const verdict = score >= 85 ? "Mistrovské dílo!" : score >= 65 ? "Tohle by se dalo prodávat." : score >= 40 ? "Pitelné, ale chce to doladit." : "Odvážný experiment, hosté váhají.";
+    const t = `${name}: ${verdict} Vyváženost ${score} % ${stars(score)}`;
+    barmsg.textContent = t; live.textContent = t; barrender(); decorate();
+    showProfile(name, [["Síla", pr[0]], ["Sladkost", pr[1]], ["Kyselost", pr[2]], ["Šumivost", pr[3]], ["Chlad", chill], ["Vyváženost", score]]);
+    if (score >= 65) burst();
+  });
+}
+
+function serve() {
+  if (bphase === "result") return free ? newFree() : bres.length >= DRINKS ? newShift() : newOrder();
+  if (bphase !== "mixing") return;
+  if (free) return serveFree();
+  stopHold(); bphase = "serving"; barrender();
+  const cnt = countOf(), tg = order[1], tt = Object.values(tg).reduce((a, b) => a + b, 0);
+  let err = 0; [...Object.keys(ING), "ice"].forEach(id => err += Math.abs((id === "ice" ? iceN : cnt[id] || 0) - (tg[id] || 0)));
+  const acc = Math.round(Math.max(0, 1 - err / tt) * 100);
+  let tip = acc >= 90 ? 20 : acc >= 70 ? 10 : acc >= 50 ? 5 : 0;
+  const fast = acc >= 90 && tleft > tmax() / 2; if (fast) tip += 5;
+  const mult = combo >= 2 ? 2 : combo === 1 ? 1.5 : 1, hm = hard ? 2 : 1;
+  tip = Math.round(tip * mult * hm);
+  const extra = [mult > 1 && tip ? "kombo ×" + String(mult).replace(".", ",") : "", hard && tip ? "těžká ×2" : "", fast ? "rychlost +5" : ""].filter(Boolean).join(", ");
+  combo = acc >= 80 ? combo + 1 : 0;
+  animateServe(() => {
+    bank += tip; bres.push({ acc, tip }); bphase = "result";
+    const verdict = !glass.length ? "Prázdná sklenice! Host odešel naštvaný." : acc >= 95 ? "Perfektní drink!" : acc >= 80 ? "Skvělé, host je spokojený." :
+      acc >= 60 ? "Ujde to." : acc >= 30 ? "Hostovi to moc nechutná." : "Tohle se pít nedá.";
+    let t = `${verdict} Přesnost ${acc} %, spropitné ${tip} žetonů${extra ? " (" + extra + ")" : ""}.`;
+    if (bres.length >= DRINKS) { const avg = Math.round(bres.reduce((a, r) => a + r.acc, 0) / bres.length); t += ` Směna končí. Hodnocení baru: ${stars(avg)}`; }
+    barmsg.textContent = t; live.textContent = t; barrender(); decorate();
+    if (acc >= 90) burst();
+  });
+}
+
+$("serve").addEventListener("click", serve);
+$("clear").addEventListener("click", () => { if (bphase === "mixing") { stopHold(); glass = []; iceN = 0; $("liquid").dataset.n = 0; barrender(); } });
+$("minereset").addEventListener("click", () => { mine = []; barrender(); });
+setInterval(() => {
+  if (free || bphase !== "mixing" || $("barPane").hidden) return;
+  tleft -= .1; $("tbar").style.width = Math.max(0, tleft / tmax() * 100) + "%";
+  $("timer").classList.toggle("low", tleft < 10);
+  if (isHidden() !== lastHidden) { lastHidden = isHidden(); barrender(); }
+  if (tleft <= 0) serve();
+}, 100);
+
+/* ===== Záložky ===== */
+const TABS = { dice: ["tabDice", "dicePane"], roul: ["tabRoul", "roulettePane"], bj: ["tabBj", "bjPane"], bar: ["tabBar", "barPane"] };
+function tab(name) {
+  Object.entries(TABS).forEach(([k, [t, pane]]) => {
+    $(pane).hidden = k !== name; $(t).setAttribute("aria-selected", String(k === name));
+  });
+  $("bank").textContent = $("bjbank").textContent = $("barbank").textContent = bank;
+}
+Object.entries(TABS).forEach(([k, [t]]) => $(t).addEventListener("click", () => tab(k)));
+newDeck(); rrender(); bjrender(); newShift();
+</script>
+</body>
+</html>
